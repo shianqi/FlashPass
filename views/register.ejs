@@ -26,17 +26,18 @@
     <div class="message">FlashPass 登陆框架</div>
     <div id="darkbannerwrap"></div>
 
-    <form method="post"  action="login">
+    <form method="post"  action="register">
         <font color="red"><p><%=message%></p></font>
         <hr class="hr15">
         <input name="username" placeholder="Username" required="required" type="text">
         <hr class="hr15">
+        <input name="email" placeholder="Email" required="required" type="email">
+        <hr class="hr15">
         <input name="password" placeholder="Password" required="required" type="password">
         <hr class="hr15">
-        <input value="Login" style="width:100%;" type="submit">
+        <input value="Register" style="width:100%;" type="submit">
         <hr class="hr20">
-        <a class="forgetPassword">忘记密码</a>
-        <a class="register" href="register">注册账号</a>
+        <a class="forgetPassword" href="login">返回登陆</a>
     </form>
 
 

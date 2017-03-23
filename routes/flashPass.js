@@ -94,12 +94,49 @@ router.get('/logout', function (req, res, next) {
 });
 
 router.get('/register', (req, res, next)=>{
-	res.render('/register');
+	res.render('register',{message:''});
 });
 
 router.post('/register', (req, res, next)=>{
 
 });
+
+
+/**
+ * 检查邮箱是否合法，首先检查格式，之后检查是否被注册
+ * @param email
+ * @returns {Promise}
+ */
+let checkEmail = function(email){
+	return new Promise((resolve, reject)=>{
+		let result = {state : false};
+		let reg = /^[a-zA-Z0_\-.]+@[a-zA-Z0-9_.]+\.[a-zA-Z-0-9]+$/;
+
+		if(email != null){
+			if(reg.test(email)){
+				Users.findOne({email: email},(error, data)=>{
+					if(error){
+						console.log(error);
+						result.reason = '服务器错误，请稍候重试';
+					} else {
+						if(data == null){
+							result.state = true;
+							console.log('success');
+						}
+					}
+					resolve(result);
+				});
+			}else{
+				result.reason = '邮箱格式错误';
+				resolve(result);
+			}
+		}else{
+			result.reason = '邮箱不能为空';
+			resolve(result);
+		}
+	});
+
+};
 
 /**
  * 供 Ajax 方法调用，检查用户名是否被注册
@@ -122,27 +159,10 @@ router.post('/checkUsername', (req, res, next)=>{
  * 供 Ajax 方法调用，检查邮箱是否被注册
  */
 router.post('/checkEmail', (req, res, next)=>{
-	Users.findOne({email: req.body.email},(error, data)=>{
-		if(error){
-			console.log(error);
-		} else {
-			if(data == null){
-				res.json({state: true});
-				return;
-			}
-		}
-		res.json({state: false});
+	checkEmail(req.body.email).then((date)=>{
+		res.json(date);
 	});
 });
-
-let checkEmail = function(email){
-	let reg = /^[a-zA-Z0_\-.]+@[a-zA-Z0-9_.]+\.[a-zA-Z-0-9]+$/;
-	if(email != null){
-		return reg.test(email);
-	}else{
-		return false;
-	}
-};
 
 /**
  * 用户初始化FlashPass
