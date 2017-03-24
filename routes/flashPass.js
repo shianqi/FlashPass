@@ -7,7 +7,7 @@ let Users = require('../models/Users');
 let setting = {
 	loginByUsername: true,
 	loginByEmail: true,
-	usernameMinLength: 5,
+	usernameMinLength: 3,
 	usernameMaxLength: 16,
 	passwordMinLength: 6,
 	passwordMaxLength: 16,
@@ -98,7 +98,29 @@ router.get('/register', (req, res, next)=>{
 });
 
 router.post('/register', (req, res, next)=>{
-
+	checkUsername(req.body.username).then(()=>{
+		checkEmail(req.body.email).then(()=>{
+			if(checkPassword(req.body.password)){
+				new Users({
+					username: req.body.username,
+					password: sha1(req.body.username),
+					email: req.body.email,
+					emailActivated: true,
+				}).save((error)=>{
+					res.redirect(req.baseUrl+'/login');
+				});
+			}else{
+				res.render('register',{message: '密码格式错误！'});
+			}
+		},(data)=>{
+			console.log(1);
+			res.render('register',{message: data.reason});
+		})
+	},(data)=>{
+		console.log(2);
+		console.log(data);
+		res.render('register',{message: data.reason});
+	});
 });
 
 
@@ -121,37 +143,74 @@ let checkEmail = function(email){
 					} else {
 						if(data == null){
 							result.state = true;
-							console.log('success');
+							resolve(result);
+						}else{
+							result.reason = "邮箱已被注册";
 						}
 					}
-					resolve(result);
+					reject(result);
 				});
 			}else{
 				result.reason = '邮箱格式错误';
-				resolve(result);
+				reject(result);
 			}
 		}else{
 			result.reason = '邮箱不能为空';
-			resolve(result);
+			reject(result);
 		}
 	});
+};
 
+/**
+ * 检查密码格式是否合法
+ * @param password
+ * @returns {boolean}
+ */
+let checkPassword = function(password){
+	let reg = new RegExp("^[a-zA-Z-0-9_]{"+setting.usernameMinLength+","+setting.usernameMaxLength+"}$");
+	return reg.test(password);
+};
+
+/**
+ * 检查用户名是否合法
+ * @param username 用户名
+ * @returns {Promise}
+ */
+let checkUsername = function(username){
+	return new Promise((resolve, reject)=>{
+		let result = {state : false};
+		let reg = new RegExp("^[a-zA-Z0-9_\\u4E00-\\u9FA5]{"+setting.usernameMinLength+","+setting.usernameMaxLength+"}$");
+		if(!reg.test(username)){
+			result.reason = "用户名格式错误";
+			reject(result);
+		}else{
+			Users.findOne({username: username}, (error, data)=>{
+				if(error){
+					console.log(error);
+					result.reason = '服务器错误，请稍候重试';
+					reject(result);
+				}else {
+					if(data == null){
+						result.state = true;
+						resolve(result);
+					}else{
+						result.reason = '用户已存在';
+						reject(result);
+					}
+				}
+			});
+		}
+	});
 };
 
 /**
  * 供 Ajax 方法调用，检查用户名是否被注册
  */
 router.post('/checkUsername', (req, res, next)=>{
-	Users.findOne({username: req.body.username},(error, data)=>{
-		if(error){
-			console.log(error);
-		} else {
-			if(data == null){
-				res.json({state: true});
-				return;
-			}
-		}
-		res.json({state: false});
+	checkUsername(req.body.username).then((date)=>{
+		res.json(date);
+	},(data)=>{
+		res.json(data);
 	});
 });
 
@@ -161,6 +220,8 @@ router.post('/checkUsername', (req, res, next)=>{
 router.post('/checkEmail', (req, res, next)=>{
 	checkEmail(req.body.email).then((date)=>{
 		res.json(date);
+	},(data)=>{
+		res.json(data);
 	});
 });
 
