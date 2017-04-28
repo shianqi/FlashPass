@@ -13,6 +13,11 @@ let setting = {
 	passwordMaxLength: 16,
 };
 
+/**
+ * 初始化配置
+ * @param obj 传入一个对象，用来加载配置
+ * @returns express.Router 返回Router对象
+ */
 let init = function (obj) {
 	let {
 		loginByUsername,
@@ -36,6 +41,10 @@ let init = function (obj) {
 	return router;
 };
 
+/**
+ * 内部调试所用方法，查看当前设置
+ * @inner
+ */
 router.get('/', (req, res, next)=>{
 	res.json(setting);
 	// res.redirect(req.baseUrl+'/login');
@@ -65,46 +74,127 @@ router.get('/install', (req, res, next)=>{
 	});
 });
 
+/**
+ * 展示登陆界面
+ */
 router.get('/login', function (req, res, next) {
 	res.render('login',{'message':''});
 });
 
 router.post('/login', function (req, res) {
-	Users.findOne({username:req.body.username,password:sha1(req.body.password)},function (err,data) {
-		if(err){
-			res.render('error',{'message':err});
-		}else{
-			if(data==null){
-				res.render('login',{'message':'用户名或密码错误！'});
-			}else {
-				req.session.user = data;
-				res.redirect('/');
-			}
-		}
-	});
+	let _userKey = req.body.username;
+	let _password = req.body.password;
+
+	if(setting.loginByEmail&&checkEmailFormat(_userKey)){
+		loginByEmail(_userKey, _password).then((data)=>{
+			req.session.user = data;
+			res.redirect('/');
+		},()=>{
+			res.render('login',{'message':'用户名或密码错误！'});
+		});
+	}else{
+		loginByUsername(_userKey, _password).then((data)=>{
+			req.session.user = data;
+			console.log(req.session.user);
+			res.redirect('/');
+		},()=>{
+			res.render('login',{'message':'用户名或密码错误！'});
+		});
+	}
+
 });
 
+/**
+ * 使用密码进行登陆
+ * @param username 用户名
+ * @param password 密码
+ * @returns {Promise}
+ */
+let loginByUsername = function(username, password){
+	return new Promise((resolve, reject)=>{
+		Users.findOne({
+			username:username,
+			password:sha1(password)
+		},function (err,data) {
+			if(err){
+				reject(err);
+			}else{
+				if(data==null){
+					reject();
+				}else {
+					resolve(data);
+				}
+			}
+		});
+	});
+};
+
+/**
+ * 使用邮箱进行登陆
+ * @param email 邮箱
+ * @param password 密码
+ * @returns {Promise}
+ */
+let loginByEmail = function(email, password){
+	return new Promise((resolve, reject)=>{
+		Users.findOne({
+			email:email,
+			password:sha1(password)
+		},function (err,data) {
+			if(err){
+				reject(err);
+			}else{
+				if(data==null){
+					reject();
+				}else {
+					resolve(data);
+				}
+			}
+		});
+	});
+};
+
+/**
+ * 判断当前用户是否已经登陆
+ * @param req 用户的 request 请求
+ * @returns {boolean} 是否已经登陆，true:已经登陆，false: 还未登录
+ */
 let loggedIn = function (req) {
 	return (typeof(req.session.user) !== "undefined");
 };
 
+/**
+ * 提供注销所用方法
+ */
 router.get('/logout', function (req, res, next) {
 	req.session.user = undefined;
-	res.redirect('/login');
+	res.redirect(req.baseUrl+'/login');
 });
 
+/**
+ * 展示注册界面
+ */
 router.get('/register', (req, res, next)=>{
 	res.render('register',{message:''});
 });
 
+/**
+ * 提交注册方法
+ * @version 1.1
+ * @method
+ */
 router.post('/register', (req, res, next)=>{
-	checkUsername(req.body.username).then(()=>{
-		checkEmail(req.body.email).then(()=>{
-			if(checkPassword(req.body.password)){
+	let username = req.body.username;
+	let password = req.body.password;
+	let email = req.body.email;
+
+	checkUsername(username).then(()=>{
+		checkEmail(email).then(()=>{
+			if(checkPassword(password)){
 				new Users({
-					username: req.body.username,
-					password: sha1(req.body.username),
-					email: req.body.email,
+					username: username,
+					password: sha1(password),
+					email: email,
 					emailActivated: true,
 				}).save((error)=>{
 					res.redirect(req.baseUrl+'/login');
@@ -113,29 +203,39 @@ router.post('/register', (req, res, next)=>{
 				res.render('register',{message: '密码格式错误！'});
 			}
 		},(data)=>{
-			console.log(1);
+			console.log(data);
 			res.render('register',{message: data.reason});
 		})
 	},(data)=>{
-		console.log(2);
 		console.log(data);
 		res.render('register',{message: data.reason});
 	});
 });
 
+/**
+ * 检查邮箱格式是否合法
+ * @param email
+ * @returns {boolean}
+ */
+let checkEmailFormat = function(email){
+	let reg = /^[a-zA-Z0-9_\-.]+@[a-zA-Z0-9_.]+\.[a-zA-Z-0-9]+$/;
+	return reg.test(email);
+};
 
 /**
  * 检查邮箱是否合法，首先检查格式，之后检查是否被注册
- * @param email
+ * @version 1.0
+ * @param email 用户邮箱
  * @returns {Promise}
+ *  resolve: {state : true} state 状态码
+ *  reject: {state: false, result: 'reason'} reason:失败原因
  */
 let checkEmail = function(email){
 	return new Promise((resolve, reject)=>{
 		let result = {state : false};
-		let reg = /^[a-zA-Z0_\-.]+@[a-zA-Z0-9_.]+\.[a-zA-Z-0-9]+$/;
 
 		if(email != null){
-			if(reg.test(email)){
+			if(checkEmailFormat(email)){
 				Users.findOne({email: email},(error, data)=>{
 					if(error){
 						console.log(error);
@@ -167,12 +267,14 @@ let checkEmail = function(email){
  * @returns {boolean}
  */
 let checkPassword = function(password){
-	let reg = new RegExp("^[a-zA-Z-0-9_]{"+setting.usernameMinLength+","+setting.usernameMaxLength+"}$");
+	let reg = new RegExp("^[a-zA-Z-0-9_]{"+setting.passwordMinLength+","+setting.passwordMaxLength+"}$");
 	return reg.test(password);
 };
 
 /**
  * 检查用户名是否合法
+ * @version 1.0
+ * @method
  * @param username 用户名
  * @returns {Promise}
  */
