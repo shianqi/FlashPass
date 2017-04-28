@@ -95,7 +95,6 @@ router.post('/login', function (req, res) {
 	}else{
 		loginByUsername(_userKey, _password).then((data)=>{
 			req.session.user = data;
-			console.log(req.session.user);
 			res.redirect('/');
 		},()=>{
 			res.render('login',{'message':'用户名或密码错误！'});
@@ -210,6 +209,36 @@ router.post('/register', (req, res, next)=>{
 		console.log(data);
 		res.render('register',{message: data.reason});
 	});
+});
+
+router.get('/changePassword', (req, res, next)=>{
+	if(loggedIn(req)){
+		res.render('changePassword',{message: ''});
+	}else{
+		res.redirect('/users/login');
+	}
+});
+
+router.post('/changePassword', (req, res, next)=>{
+	let oldPassword = req.body.oldPassword;
+	let newPassword = req.body.newPassword;
+	let username = req.session.user.username;
+	console.log(oldPassword,newPassword);
+
+	if(loggedIn(req)){
+		Users.findOne({username: username,password: sha1(oldPassword)}, (err, data)=>{
+			if(err) console.log(err);
+			if(data==null){
+				res.render('changePassword',{message: '密码错误！'});
+			}else{
+				data.password = sha1(newPassword);
+				data.save();
+				res.redirect(req.baseUrl+'/login');
+			}
+		});
+	}else{
+		res.redirect('/users/login');
+	}
 });
 
 /**
