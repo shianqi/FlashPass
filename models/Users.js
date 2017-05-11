@@ -5,6 +5,7 @@ let UserSchemas = new mongoose.Schema({
 	password: String,
 	email: String,
 	emailActivated: Boolean,
+	identifyingCode: String
 });
 
 UserSchemas.statics = {

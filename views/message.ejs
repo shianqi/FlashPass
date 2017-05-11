@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta http-equiv="Content-Type" content="text/html;charset=UTF-8">
+    <meta http-equiv="Pragma" content="no-cache">
+    <meta name="viewport" content="width=device-width,initial-scale=1,minimum-scale=0.6,maximum-scale=0.8,user-scalable=no" />
+    <meta http-equiv="Cache-Control" content="no-cache">
+    <meta http-equiv="Expires" content="0">
+    <title>S-Killer Project</title>
+    <script src="//cdn.bootcss.com/jquery/1.11.3/jquery.min.js"></script>
+    <link href="/stylesheets/login.css" type=text/css rel=stylesheet />
+    <script type="text/javascript">
+		$(function(){
+			document.forms[0].username.focus();
+		});
+		// 在被嵌套时就刷新上级窗口
+		if(window.parent != window){
+			alert("请重新登录");
+			window.parent.location.reload(true);
+		}
+    </script>
+</head>
+<body>
+
+<div class="login" >
+    <div class="message">FlashPass 登陆框架</div>
+    <div id="darkbannerwrap"></div>
+
+    <form method="post"  action="">
+        <hr class="hr15">
+        <h2><%=message%></h2>
+        <hr class="hr15">
+        <hr class="hr15">
+        <input value="返回登陆" style="width:100%;" type="button" onclick="window.location='login'">
+    </form>
+
+
+</div>
+
+<div class="copyright">©2017 CopyRight shianqi</div>
+
+</body>
+</html>

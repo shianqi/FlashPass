@@ -1,6 +1,7 @@
 let express = require('express');
 let router = express.Router();
 let sha1 = require('sha1');
+let Email_tool = require('./Email');
 
 let Users = require('../models/Users');
 
@@ -113,7 +114,8 @@ let loginByUsername = function(username, password){
 	return new Promise((resolve, reject)=>{
 		Users.findOne({
 			username:username,
-			password:sha1(password)
+			password:sha1(password),
+			emailActivated: true
 		},function (err,data) {
 			if(err){
 				reject(err);
@@ -138,7 +140,8 @@ let loginByEmail = function(email, password){
 	return new Promise((resolve, reject)=>{
 		Users.findOne({
 			email:email,
-			password:sha1(password)
+			password:sha1(password),
+			emailActivated: true
 		},function (err,data) {
 			if(err){
 				reject(err);
@@ -190,13 +193,17 @@ router.post('/register', (req, res, next)=>{
 	checkUsername(username).then(()=>{
 		checkEmail(email).then(()=>{
 			if(checkPassword(password)){
+				let identifyingCode = getEmailIdentifyingCOde();
 				new Users({
 					username: username,
 					password: sha1(password),
 					email: email,
-					emailActivated: true,
+					emailActivated: false,
+					identifyingCode: identifyingCode
 				}).save((error)=>{
 					res.redirect(req.baseUrl+'/login');
+				}).then(()=>{
+					sendEmailIdentifyingCode(email, identifyingCode);
 				});
 			}else{
 				res.render('register',{message: '密码格式错误！'});
@@ -211,6 +218,9 @@ router.post('/register', (req, res, next)=>{
 	});
 });
 
+/**
+ * 显示修改密码界面
+ */
 router.get('/changePassword', (req, res, next)=>{
 	if(loggedIn(req)){
 		res.render('changePassword',{message: ''});
@@ -219,6 +229,9 @@ router.get('/changePassword', (req, res, next)=>{
 	}
 });
 
+/**
+ * 提交修改密码方法
+ */
 router.post('/changePassword', (req, res, next)=>{
 	let oldPassword = req.body.oldPassword;
 	let newPassword = req.body.newPassword;
@@ -289,6 +302,49 @@ let checkEmail = function(email){
 		}
 	});
 };
+
+/**
+ * 发送验证邮件
+ * @param email 邮箱
+ * @param identifyingCode 验证码
+ */
+let sendEmailIdentifyingCode = function(email, identifyingCode){
+	Email_tool('【FlashPass】请验证您的邮箱',
+		`<h2>点击下面这个链接激活吧。</h2>
+		<a href="http://localhost:3000/users/identifying?email=${email}&identifyingCode=${identifyingCode}">
+		http://localhost:3000/users/identifying?email=${email}&identifyingCode=${identifyingCode}</a>`,
+		email
+	);
+};
+
+/**
+ * 生成验证码
+ * @param username 用户名
+ */
+let getEmailIdentifyingCOde = function(username){
+	let time = new Date().valueOf();
+	return sha1("killer"+time+username);
+};
+
+/**
+ * 验证邮箱方法
+ */
+router.get('/identifying', (req, res, next)=>{
+	let email = req.query.email;
+	let identifyingCode = req.query.identifyingCode;
+	Users.findOne({email: email,identifyingCode: identifyingCode}, (err, data)=>{
+		if(err) console.log(err);
+		if(data==null){
+			res.render('message',{message:"验证出错。"});
+		}else{
+			data.emailActivated = true;
+			data.save().then(()=>{
+				res.render('message',{message:`验证成功。`});
+
+			});
+		}
+	});
+});
 
 /**
  * 检查密码格式是否合法
